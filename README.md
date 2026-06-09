@@ -98,3 +98,8 @@ Desktop still keeps the modal for fast editing.
 
 ## Fixed blank page after addtask update
 This version fixes the route detection for `addtask.html` and adds a runtime guard so a JavaScript error shows a readable error card instead of a totally blank screen.
+
+
+## Add Task mobile full-width fix
+The `addtask.html` page now fills the whole phone screen width.
+Also fixed the missing save icon fallback that showed `undefined` on the save button.

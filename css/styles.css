@@ -1604,3 +1604,68 @@ tbody tr:last-child td{border-bottom:none}
     position:sticky;
   }
 }
+
+
+/* ===================== ADDTASK FULL-WIDTH PHONE FIX ===================== */
+@media(max-width:860px) {
+  html,
+  body {
+    width:100%;
+    min-width:0;
+    overflow-x:hidden;
+  }
+
+  body:has(.addtask-page) {
+    width:100vw;
+    overflow-x:hidden;
+    background:var(--bg);
+  }
+
+  body:has(.addtask-page) #app,
+  body:has(.addtask-page) .shell,
+  body:has(.addtask-page) .main,
+  body:has(.addtask-page) .content,
+  body:has(.addtask-page) .addtask-page {
+    width:100vw !important;
+    max-width:100vw !important;
+    min-width:0 !important;
+    margin:0 !important;
+    padding-left:0 !important;
+    padding-right:0 !important;
+    box-sizing:border-box;
+  }
+
+  body:has(.addtask-page) .addtask-appbar {
+    width:100vw;
+    max-width:100vw;
+    box-sizing:border-box;
+  }
+
+  body:has(.addtask-page) .addtask-form {
+    width:100vw;
+    max-width:100vw;
+    box-sizing:border-box;
+    padding-left:14px;
+    padding-right:14px;
+  }
+
+  body:has(.addtask-page) .addtask-form-grid,
+  body:has(.addtask-page) .field,
+  body:has(.addtask-page) .field input,
+  body:has(.addtask-page) .field select,
+  body:has(.addtask-page) .field textarea {
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box;
+  }
+
+  body:has(.addtask-page) .addtask-savebar {
+    width:100vw;
+    max-width:100vw;
+    box-sizing:border-box;
+  }
+
+  body:has(.addtask-page) .addtask-savebar .btn-primary {
+    justify-content:center;
+  }
+}

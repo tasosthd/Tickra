@@ -879,6 +879,22 @@ function goBackFromAddTask() {
   go(getSafeBackPage());
 }
 
+
+function addTaskLabel(key) {
+  const labels = {
+    title: state.lang === "el" ? "Τίτλος εργασίας" : "Task title",
+    description: state.lang === "el" ? "Περιγραφή" : "Description",
+    project: state.lang === "el" ? "Έργο" : "Project",
+    category: state.lang === "el" ? "Κατηγορία" : "Category",
+    status: state.lang === "el" ? "Κατάσταση" : "Status",
+    priority: state.lang === "el" ? "Προτεραιότητα" : "Priority",
+    due: state.lang === "el" ? "Προθεσμία" : "Due date",
+    estimate: state.lang === "el" ? "Εκτίμηση χρόνου" : "Estimate",
+    notes: state.lang === "el" ? "Σημειώσεις" : "Notes"
+  };
+  return labels[key] || key;
+}
+
 function renderAddTaskPage() {
   const backTo = getSafeBackPage();
 
@@ -896,20 +912,20 @@ function renderAddTaskPage() {
 
       <form class="addtask-form" onsubmit="saveAddTaskPage(event)">
         <div class="form-grid addtask-form-grid">
-          ${field("title",t("taskTitle"),"",true)}
-          ${field("description",t("description"),"","textarea")}
-          ${field("project",t("project"),"")}
-          ${field("category",t("category"),"")}
-          ${field("status",t("status"),"Open","select",["Open","In Progress","Review","Done"])}
-          ${field("priority",t("priority"),"Normal","select",["Low","Normal","High","Urgent"])}
-          ${field("due",t("due"),"","date")}
-          ${field("estimate",t("estimate"),"")}
-          ${field("notes",t("notes"),"","textarea")}
+          ${field("title",addTaskLabel("title"),"",true)}
+          ${field("description",addTaskLabel("description"),"","textarea")}
+          ${field("project",addTaskLabel("project"),"")}
+          ${field("category",addTaskLabel("category"),"")}
+          ${field("status",addTaskLabel("status"),"Open","select",["Open","In Progress","Review","Done"])}
+          ${field("priority",addTaskLabel("priority"),"Normal","select",["Low","Normal","High","Urgent"])}
+          ${field("due",addTaskLabel("due"),"","date")}
+          ${field("estimate",addTaskLabel("estimate"),"")}
+          ${field("notes",addTaskLabel("notes"),"","textarea")}
         </div>
 
         <div class="addtask-savebar">
-          <button type="button" class="btn btn-ghost" onclick="goBackFromAddTask()">${I.back || ''}<span>Cancel</span></button>
-          <button type="submit" class="btn btn-primary">${I.save}<span>${t("saveTask")}</span></button>
+          <button type="button" class="btn btn-ghost" onclick="goBackFromAddTask()">${I.back || ""}<span>Cancel</span></button>
+          <button type="submit" class="btn btn-primary">${I.save || I.check || ""}<span>${t("saveTask")}</span></button>
         </div>
       </form>
     </section>
