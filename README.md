@@ -51,26 +51,3 @@ If the page ever looks blank:
 3. Make sure `js/config.js` contains your real Supabase Project URL and anon public key.
 4. Redeploy the full folder to Vercel.
 5. In Vercel, hard refresh the site with Ctrl+F5 after deployment.
-
-
-## Profile dropdown update
-The Google profile picture no longer logs the user out directly.
-Clicking the avatar opens a dropdown with:
-- Google profile image
-- name
-- email
-- Settings button
-- Logout button with matching inline SVG icon
-
-
-## Instagram-style mobile polish
-This version includes:
-- Better mobile topbar
-- Sticky glass bottom navigation
-- Mobile-safe spacing with safe-area support
-- Task tables transformed into mobile cards
-- Bottom-sheet style modals
-- Swipe-friendly kanban columns
-- Mobile profile bottom sheet
-- Larger touch targets
-- iOS zoom prevention on form fields

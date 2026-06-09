@@ -45,7 +45,6 @@ const I = {
   reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
   star:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="m12 2 2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg>',
-  logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   target:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'
 };
 
@@ -245,54 +244,13 @@ function userMenuHTML() {
 
   const photo = getUserPhoto();
   const name = getUserName();
-  const email = currentUser?.email || "";
 
   return `
-    <div class="profile-menu-wrap">
-      <button class="google-user" onclick="toggleProfileMenu(event)" title="${esc(name)}">
-        ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
-      </button>
-
-      <div class="profile-menu" id="profileMenu">
-        <div class="profile-menu-head">
-          <div class="profile-menu-avatar">
-            ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
-          </div>
-          <div class="profile-menu-user">
-            <b>${esc(name)}</b>
-            <span>${esc(email)}</span>
-          </div>
-        </div>
-
-        <div class="profile-menu-actions">
-          <button onclick="go('settings.html')">
-            ${I.settings}
-            <span>${t("settings")}</span>
-          </button>
-          <button class="danger" onclick="logoutUser()">
-            ${I.logout}
-            <span>Logout</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    <button class="google-user" onclick="logoutUser()" title="${esc(name)} · Logout">
+      ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
+    </button>
   `;
 }
-
-function toggleProfileMenu(event) {
-  event.stopPropagation();
-  const menu = document.getElementById("profileMenu");
-  if (!menu) return;
-  menu.classList.toggle("open");
-}
-
-document.addEventListener("click", (event) => {
-  const wrap = event.target.closest?.(".profile-menu-wrap");
-  if (!wrap) {
-    document.querySelectorAll(".profile-menu.open").forEach(menu => menu.classList.remove("open"));
-  }
-});
-
 
 function authNoticeHTML() {
   if (!isSupabaseConfigured) {
