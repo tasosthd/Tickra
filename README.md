@@ -51,3 +51,46 @@ If the page ever looks blank:
 3. Make sure `js/config.js` contains your real Supabase Project URL and anon public key.
 4. Redeploy the full folder to Vercel.
 5. In Vercel, hard refresh the site with Ctrl+F5 after deployment.
+
+
+## Profile dropdown update
+The Google profile picture no longer logs the user out directly.
+Clicking the avatar opens a dropdown with:
+- Google profile image
+- name
+- email
+- Settings button
+- Logout button with matching inline SVG icon
+
+
+## Instagram-style mobile polish
+This version includes:
+- Better mobile topbar
+- Sticky glass bottom navigation
+- Mobile-safe spacing with safe-area support
+- Task tables transformed into mobile cards
+- Bottom-sheet style modals
+- Swipe-friendly kanban columns
+- Mobile profile bottom sheet
+- Larger touch targets
+- iOS zoom prevention on form fields
+
+
+## Full-screen mobile task editor
+On phones, the Add/Edit Task modal is now a full-screen app-like page:
+- Full-screen height
+- Top-left back arrow
+- Sticky bottom save button
+- Cancel closes from the back arrow
+- Form fields are touch-friendly cards
+
+
+## Separate add task page
+Added `addtask.html`.
+On phones, pressing Add Task opens this separate full-screen page instead of a modal.
+The page includes:
+- top-left back arrow
+- full-screen task form
+- sticky save button
+- Supabase cloud save support
+Desktop still keeps the modal for fast editing.

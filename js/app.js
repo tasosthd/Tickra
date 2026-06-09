@@ -45,6 +45,8 @@ const I = {
   reset:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   bolt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
   star:'<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="m12 2 2.9 6.3 6.9.6-5.2 4.6 1.6 6.8L12 17.3 5.8 20.9l1.6-6.8L2.2 8.9l6.9-.6z"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18 9 12l6-6"/></svg>',
+  logout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   target:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'
 };
 
@@ -244,13 +246,54 @@ function userMenuHTML() {
 
   const photo = getUserPhoto();
   const name = getUserName();
+  const email = currentUser?.email || "";
 
   return `
-    <button class="google-user" onclick="logoutUser()" title="${esc(name)} · Logout">
-      ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
-    </button>
+    <div class="profile-menu-wrap">
+      <button class="google-user" onclick="toggleProfileMenu(event)" title="${esc(name)}">
+        ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
+      </button>
+
+      <div class="profile-menu" id="profileMenu">
+        <div class="profile-menu-head">
+          <div class="profile-menu-avatar">
+            ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
+          </div>
+          <div class="profile-menu-user">
+            <b>${esc(name)}</b>
+            <span>${esc(email)}</span>
+          </div>
+        </div>
+
+        <div class="profile-menu-actions">
+          <button onclick="go('settings.html')">
+            ${I.settings}
+            <span>${t("settings")}</span>
+          </button>
+          <button class="danger" onclick="logoutUser()">
+            ${I.logout}
+            <span>Logout</span>
+          </button>
+        </div>
+      </div>
+    </div>
   `;
 }
+
+function toggleProfileMenu(event) {
+  event.stopPropagation();
+  const menu = document.getElementById("profileMenu");
+  if (!menu) return;
+  menu.classList.toggle("open");
+}
+
+document.addEventListener("click", (event) => {
+  const wrap = event.target.closest?.(".profile-menu-wrap");
+  if (!wrap) {
+    document.querySelectorAll(".profile-menu.open").forEach(menu => menu.classList.remove("open"));
+  }
+});
+
 
 function authNoticeHTML() {
   if (!isSupabaseConfigured) {
@@ -678,9 +721,13 @@ function setLang(lang){state.lang=lang;localStorage.setItem("tf_lang",lang);docu
 function toggleTheme(){state.theme=state.theme==="dark"?"light":"dark";localStorage.setItem("tf_theme",state.theme);document.documentElement.dataset.theme=state.theme;renderPage()}
 function saveSettings(){state.appName=document.getElementById("appNameInput").value.trim()||"TaskFlow Blueprint";save();toast(t("toastSaved"));renderPage()}
 function openTaskForm(id=""){
+  if (!id && window.matchMedia && window.matchMedia("(max-width: 860px)").matches) {
+    go("addtask.html?from=" + encodeURIComponent(getCurrentPageFile()));
+    return;
+  }
   const task = id ? state.tasks.find(x=>x.id===id) : null;
   const x = task || {title:"",description:"",project:"",category:"",status:"Open",priority:"Normal",due:"",estimate:"",notes:""};
-  openModal(`<div class="modal"><div class="modal-head"><div><span class="eyebrow">${task?t("editTask"):t("newTask")}</span><h3>${task?t("editTask"):t("addTask")}</h3></div><button class="modal-close" onclick="closeModal()">${I.close}</button></div>
+  openModal(`<div class="modal task-editor-modal"><div class="modal-head task-editor-head"><button class="mobile-task-back" onclick="closeModal()" aria-label="Back">${I.back || '&lt;'}</button><div><span class="eyebrow">${task?t("editTask"):t("newTask")}</span><h3>${task?t("editTask"):t("addTask")}</h3></div><button class="modal-close" onclick="closeModal()">${I.close}</button></div>
     <form class="modal-body" id="taskForm"><div class="form-grid">
       <div class="form-section-title">${t("secTask")}</div>${field("title",t("fTitle"),x.title,true)}${field("project",t("fProject"),x.project,false)}
       <div class="field full"><label>${t("fDescription")}</label><textarea name="description">${esc(x.description)}</textarea></div>
@@ -797,7 +844,86 @@ function startFocus(){
 }
 function pauseFocus(){clearInterval(state.timer);state.timer=null}
 function resetFocus(){pauseFocus();state.focusSeconds=1500;updateFocusDisplay()}
+
+function renderAddTaskPage() {
+  const params = new URLSearchParams(window.location.search);
+  const backTo = params.get("from") || "tasks.html";
+
+  return `
+    <section class="addtask-page">
+      <div class="addtask-appbar">
+        <button class="addtask-back" onclick="go('${esc(backTo)}')" aria-label="Back">
+          ${I.back || '&lt;'}
+        </button>
+        <div>
+          <span class="eyebrow">${t("newTask")}</span>
+          <h2>${t("addTask")}</h2>
+        </div>
+      </div>
+
+      <form class="addtask-form" onsubmit="saveAddTaskPage(event)">
+        <div class="form-grid addtask-form-grid">
+          ${field("title",t("taskTitle"),"",true)}
+          ${field("description",t("description"),"","textarea")}
+          ${field("project",t("project"),"")}
+          ${field("category",t("category"),"")}
+          ${field("status",t("status"),"Open","select",["Open","In Progress","Review","Done"])}
+          ${field("priority",t("priority"),"Normal","select",["Low","Normal","High","Urgent"])}
+          ${field("due",t("due"),"","date")}
+          ${field("estimate",t("estimate"),"")}
+          ${field("notes",t("notes"),"","textarea")}
+        </div>
+
+        <div class="addtask-savebar">
+          <button type="button" class="btn btn-ghost" onclick="go('${esc(backTo)}')">${I.back || ''}<span>Cancel</span></button>
+          <button type="submit" class="btn btn-primary">${I.save}<span>${t("saveTask")}</span></button>
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+async function saveAddTaskPage(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const fd = new FormData(form);
+  const now = new Date().toISOString();
+
+  const data = Object.fromEntries(fd.entries());
+  if (!String(data.title || "").trim()) {
+    toast(t("taskTitle") + " required", "err");
+    return;
+  }
+
+  const taskObject = {
+    id: uid(),
+    title: String(data.title).trim(),
+    description: data.description || "",
+    project: data.project || "",
+    category: data.category || "",
+    status: data.status || "Open",
+    priority: data.priority || "Normal",
+    due: data.due || "",
+    estimate: data.estimate || "",
+    notes: data.notes || "",
+    createdAt: now,
+    updatedAt: now,
+    completedAt: data.status === "Done" ? now : ""
+  };
+
+  state.tasks.unshift(taskObject);
+  await saveTaskToCloud(taskObject);
+  toast(t("toastCreated"));
+
+  const params = new URLSearchParams(window.location.search);
+  go(params.get("from") || "tasks.html");
+}
+
 function renderPage(){
+  if (PAGE === "addtask") {
+    app.innerHTML = renderAddTaskPage();
+    return;
+  }
   let html = "";
   if(page==="tasks") html = tasksView();
   else if(page==="board") html = boardView();
