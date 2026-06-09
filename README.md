@@ -94,3 +94,7 @@ The page includes:
 - sticky save button
 - Supabase cloud save support
 Desktop still keeps the modal for fast editing.
+
+
+## Fixed blank page after addtask update
+This version fixes the route detection for `addtask.html` and adds a runtime guard so a JavaScript error shows a readable error card instead of a totally blank screen.

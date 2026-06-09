@@ -1,4 +1,27 @@
+
+function getPageName() {
+  const file = (window.location.pathname.split("/").pop() || "index.html").toLowerCase();
+  return file.replace(".html", "") || "index";
+}
+
 "use strict";
+
+function showRuntimeError(message) {
+  const target = document.getElementById("app") || document.body;
+  target.innerHTML = `
+    <div style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:Inter,system-ui;background:var(--bg,#eef3f8);color:var(--ink,#111827);">
+      <div style="max-width:680px;width:100%;background:var(--surface,#fff);border:1px solid var(--border,#d7dee8);border-radius:22px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.12);">
+        <div style="font-family:monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#e8853a;margin-bottom:8px;">Tickra runtime guard</div>
+        <h1 style="margin:0 0 10px;font-size:24px;">The app hit a JavaScript error</h1>
+        <p style="margin:0 0 14px;color:var(--muted,#64748b);">This screen prevents a totally blank page. Open DevTools Console for details.</p>
+        <pre style="white-space:pre-wrap;background:rgba(0,0,0,.06);padding:12px;border-radius:12px;overflow:auto;">${String(message || "Unknown error").replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]))}</pre>
+      </div>
+    </div>
+  `;
+}
+window.addEventListener('error', showRuntimeError);
+window.addEventListener('unhandledrejection', event => showRuntimeError(event.reason?.message || event.reason || 'Unhandled promise rejection'));
+
 
 const SUPABASE_URL = window.TASKFLOW_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = window.TASKFLOW_SUPABASE_ANON_KEY || "";
@@ -845,14 +868,24 @@ function startFocus(){
 function pauseFocus(){clearInterval(state.timer);state.timer=null}
 function resetFocus(){pauseFocus();state.focusSeconds=1500;updateFocusDisplay()}
 
-function renderAddTaskPage() {
+
+function getSafeBackPage() {
   const params = new URLSearchParams(window.location.search);
-  const backTo = params.get("from") || "tasks.html";
+  const from = params.get("from") || "tasks.html";
+  const allowed = new Set(["index.html","tasks.html","board.html","projects.html","calendar.html","analytics.html","focus.html","settings.html"]);
+  return allowed.has(from) ? from : "tasks.html";
+}
+function goBackFromAddTask() {
+  go(getSafeBackPage());
+}
+
+function renderAddTaskPage() {
+  const backTo = getSafeBackPage();
 
   return `
     <section class="addtask-page">
       <div class="addtask-appbar">
-        <button class="addtask-back" onclick="go('${esc(backTo)}')" aria-label="Back">
+        <button class="addtask-back" onclick="goBackFromAddTask()" aria-label="Back">
           ${I.back || '&lt;'}
         </button>
         <div>
@@ -875,7 +908,7 @@ function renderAddTaskPage() {
         </div>
 
         <div class="addtask-savebar">
-          <button type="button" class="btn btn-ghost" onclick="go('${esc(backTo)}')">${I.back || ''}<span>Cancel</span></button>
+          <button type="button" class="btn btn-ghost" onclick="goBackFromAddTask()">${I.back || ''}<span>Cancel</span></button>
           <button type="submit" class="btn btn-primary">${I.save}<span>${t("saveTask")}</span></button>
         </div>
       </form>
@@ -915,12 +948,12 @@ async function saveAddTaskPage(event) {
   await saveTaskToCloud(taskObject);
   toast(t("toastCreated"));
 
-  const params = new URLSearchParams(window.location.search);
-  go(params.get("from") || "tasks.html");
+  go(getSafeBackPage());
 }
 
 function renderPage(){
-  if (PAGE === "addtask") {
+  const pageName = getPageName();
+  if (pageName === "addtask") {
     app.innerHTML = renderAddTaskPage();
     return;
   }

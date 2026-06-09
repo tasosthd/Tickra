@@ -1,0 +1,15 @@
+function renderPage(){
+  const pageName = getPageName();
+  if (pageName === "addtask") {
+    app.innerHTML = renderAddTaskPage();
+    return;
+  }
+  let html = "";
+  if(page==="tasks") html = tasksView();
+  else if(page==="board") html = boardView();
+  else if(page==="projects") html = projectsView();
+  else if(page==="calendar") html = calendarView();
+  else if(page==="analytics") html = analyticsView();
+  else if(page==="focus") html = focusView();
+  else if(page==="settings") html = settingsView();
+  else html = da
