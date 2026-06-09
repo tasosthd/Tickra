@@ -774,7 +774,7 @@ function exportData(){
 function importData(file){
   if(!file)return;
   const r=new FileReader();
-  r.onload=()=>{try{const data=JSON.parse(r.result);if(!Array.isArray(data.tasks))throw new Error("bad");state.tasks=data.tasks; state.appName=data.appName||state.appName; save();renderPage();
+  r.onload=async ()=>{try{const data=JSON.parse(r.result);if(!Array.isArray(data.tasks))throw new Error("bad");state.tasks=data.tasks; state.appName=data.appName||state.appName; save();renderPage();
       if (supabaseClient && currentUser) {
         for (const task of state.tasks) await saveTaskToCloud(task);
       }

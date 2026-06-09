@@ -41,3 +41,13 @@ Use the anon public key only. Never put service_role in frontend code.
 
 ### 5. Deploy
 Upload the folder to Vercel.
+
+
+## Blank page troubleshooting
+
+If the page ever looks blank:
+1. Open browser DevTools → Console.
+2. Check for red JavaScript errors.
+3. Make sure `js/config.js` contains your real Supabase Project URL and anon public key.
+4. Redeploy the full folder to Vercel.
+5. In Vercel, hard refresh the site with Ctrl+F5 after deployment.
