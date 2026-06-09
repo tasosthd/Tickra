@@ -1,5 +1,23 @@
 "use strict";
 
+const SUPABASE_URL = window.TASKFLOW_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = window.TASKFLOW_SUPABASE_ANON_KEY || "";
+const isSupabaseConfigured =
+  SUPABASE_URL &&
+  SUPABASE_ANON_KEY &&
+  !SUPABASE_URL.includes("PASTE_") &&
+  !SUPABASE_ANON_KEY.includes("PASTE_") &&
+  window.supabase;
+
+const supabaseClient = isSupabaseConfigured
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+let currentUser = null;
+let currentSession = null;
+let cloudReady = false;
+
+
 const I = {
   logo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/><path d="m16 17 2 2 4-5"/></svg>',
   dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
@@ -127,7 +145,14 @@ function statusClass(s){return {Open:"b-open",InProgress:"b-progress",Review:"b-
 function priorityClass(p){return {Low:"p-low",Normal:"p-normal",High:"p-high",Urgent:"p-urgent"}[p] || "p-normal"}
 function statusLabel(s){return t("st_"+s)}
 function priorityLabel(p){return t("pr_"+p)}
-function save(){localStorage.setItem(LS,JSON.stringify({tasks:state.tasks,appName:state.appName}))}
+function save(){
+  // Settings stay local. Tasks are cloud-synced when logged in.
+  const payload = {
+    tasks: isSupabaseConfigured && currentUser ? [] : state.tasks,
+    appName: state.appName
+  };
+  localStorage.setItem(LS, JSON.stringify(payload));
+}
 function load(){
   const raw = localStorage.getItem(LS);
   if(raw){
@@ -147,6 +172,238 @@ function toast(msg,type="ok",sub=""){
   toasts.appendChild(el);
   setTimeout(()=>{el.classList.add("out");setTimeout(()=>el.remove(),260)},3000);
 }
+
+async function loginWithGoogle() {
+  if (!supabaseClient) {
+    toast("Add your Supabase URL and anon key in js/config.js first", "err");
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: window.location.origin + "/" + getCurrentPageFile()
+    }
+  });
+
+  if (error) {
+    console.error(error);
+    toast("Google login failed", "err", error.message);
+  }
+}
+
+async function logoutUser() {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signOut();
+
+  if (error) {
+    console.error(error);
+    toast("Logout failed", "err", error.message);
+    return;
+  }
+
+  currentUser = null;
+  currentSession = null;
+  cloudReady = false;
+  state.tasks = [];
+  save();
+  renderPage();
+}
+
+function getCurrentPageFile() {
+  const path = window.location.pathname.split("/").pop();
+  return path || "index.html";
+}
+
+function getUserPhoto() {
+  return currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || "";
+}
+
+function getUserName() {
+  return currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.name || currentUser?.email || "User";
+}
+
+function userMenuHTML() {
+  if (!isSupabaseConfigured) {
+    return `
+      <button class="btn btn-ghost" onclick="toast('Add Supabase keys in js/config.js first','err')">
+        ${I.alert}
+        <span>Setup</span>
+      </button>
+    `;
+  }
+
+  if (!currentUser) {
+    return `
+      <button class="btn btn-ghost" onclick="loginWithGoogle()">
+        ${I.check}
+        <span>Google</span>
+      </button>
+    `;
+  }
+
+  const photo = getUserPhoto();
+  const name = getUserName();
+
+  return `
+    <button class="google-user" onclick="logoutUser()" title="${esc(name)} · Logout">
+      ${photo ? `<img src="${esc(photo)}" alt="${esc(name)}">` : `<span>${esc(name.slice(0,1).toUpperCase())}</span>`}
+    </button>
+  `;
+}
+
+function authNoticeHTML() {
+  if (!isSupabaseConfigured) {
+    return `
+      <div class="auth-notice">
+        <b>Supabase setup needed</b>
+        <span>Edit <code>js/config.js</code> and paste your Supabase Project URL + anon public key.</span>
+      </div>
+    `;
+  }
+
+  if (!currentUser) {
+    return `
+      <div class="auth-notice">
+        <b>Cloud sync is ready</b>
+        <span>Sign in with Google to save and sync tasks in Supabase.</span>
+        <button class="btn btn-primary btn-sm" onclick="loginWithGoogle()">${I.check} Google</button>
+      </div>
+    `;
+  }
+
+  return "";
+}
+
+async function initAuth() {
+  if (!supabaseClient) return;
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) console.error(error);
+
+  currentSession = data?.session || null;
+  currentUser = currentSession?.user || null;
+
+  if (currentUser) {
+    await loadCloudTasks();
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    currentSession = session;
+    currentUser = session?.user || null;
+
+    if (currentUser) {
+      await loadCloudTasks();
+    } else {
+      cloudReady = false;
+      state.tasks = [];
+      renderPage();
+    }
+  });
+}
+
+function mapTaskFromDB(row) {
+  return {
+    id: row.id,
+    title: row.title || "",
+    description: row.description || "",
+    project: row.project || "",
+    category: row.category || "",
+    status: row.status || "Open",
+    priority: row.priority || "Normal",
+    due: row.due || "",
+    estimate: row.estimate || "",
+    notes: row.notes || "",
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+    completedAt: row.completed_at || ""
+  };
+}
+
+function mapTaskToDB(task) {
+  return {
+    id: task.id,
+    user_id: currentUser.id,
+    title: task.title,
+    description: task.description || "",
+    project: task.project || "",
+    category: task.category || "",
+    status: task.status || "Open",
+    priority: task.priority || "Normal",
+    due: task.due || null,
+    estimate: task.estimate || "",
+    notes: task.notes || "",
+    created_at: task.createdAt || new Date().toISOString(),
+    updated_at: task.updatedAt || new Date().toISOString(),
+    completed_at: task.completedAt || null
+  };
+}
+
+async function loadCloudTasks() {
+  if (!supabaseClient || !currentUser) return;
+
+  const { data, error } = await supabaseClient
+    .from("tasks")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    toast("Cloud load failed", "err", error.message);
+    return;
+  }
+
+  state.tasks = (data || []).map(mapTaskFromDB);
+  cloudReady = true;
+  renderPage();
+}
+
+async function saveTaskToCloud(task) {
+  if (!supabaseClient || !currentUser) {
+    state.tasks = [task, ...state.tasks.filter(x => x.id !== task.id)];
+    save();
+    renderPage();
+    toast("Saved locally. Sign in with Google for cloud sync.", "info");
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .upsert(mapTaskToDB(task), { onConflict: "id" });
+
+  if (error) {
+    console.error(error);
+    toast("Cloud save failed", "err", error.message);
+    return;
+  }
+
+  await loadCloudTasks();
+}
+
+async function deleteTaskFromCloud(id) {
+  if (!supabaseClient || !currentUser) {
+    state.tasks = state.tasks.filter(x => x.id !== id);
+    save();
+    renderPage();
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("tasks")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", currentUser.id);
+
+  if (error) {
+    console.error(error);
+    toast("Cloud delete failed", "err", error.message);
+    return;
+  }
+
+  await loadCloudTasks();
+}
+
 function closeModal(){overlay.classList.remove("open");modalHost.innerHTML=""}
 function openModal(html){modalHost.innerHTML=html;overlay.classList.add("open")}
 overlay?.addEventListener("click",e=>{if(e.target===overlay)closeModal()});
@@ -224,10 +481,11 @@ function shell(content){
         <div class="topbar-actions">
           <div class="lang-switch"><button class="${state.lang==="el"?"active":""}" onclick="setLang('el')">EL</button><button class="${state.lang==="en"?"active":""}" onclick="setLang('en')">EN</button></div>
           <button class="icon-btn" onclick="toggleTheme()">${state.theme==="dark"?I.sun:I.moon}</button>
+          ${userMenuHTML()}
           <button class="btn btn-primary" onclick="openTaskForm()">${I.add}<span>${t("addTask")}</span></button>
         </div>
       </header>
-      <section class="content view">${content}</section>
+      <section class="content view">${authNoticeHTML()}${content}</section>
       <nav class="bottom-nav">
         ${navItems().slice(0,5).map(([href,id,ic,label])=>`
           <button class="bn-item ${id===page?"active":""}" onclick="go('${href}')">${ic}<span>${label}</span></button>`).join("")}
@@ -432,7 +690,7 @@ function openTaskForm(id=""){
 }
 function field(name,label,val,req=false,type="text",step=""){return `<div class="field" data-field="${name}"><label>${label}${req?` <span class="req">*</span>`:""}</label><input name="${name}" type="${type}" ${step?`step="${step}"`:""} value="${esc(val)}"><span class="err-msg">${t("required")}</span></div>`}
 function selectField(name,label,opts,val,labeller){return `<div class="field"><label>${label}</label><select name="${name}">${opts.map(o=>`<option value="${o}" ${val===o?"selected":""}>${labeller(o)}</option>`).join("")}</select></div>`}
-function saveTask(id=""){
+async function saveTask(id=""){
   const form = document.getElementById("taskForm");
   const data = Object.fromEntries(new FormData(form).entries());
   form.querySelectorAll(".field").forEach(f=>f.classList.remove("err"));
@@ -441,16 +699,20 @@ function saveTask(id=""){
   if(data.estimate && Number(data.estimate)<0){form.querySelector('[data-field="estimate"]').classList.add("err");ok=false}
   if(!ok){toast(t("toastFix"),"err");return}
   const now = new Date().toISOString();
+  let taskObject;
   if(id){
     const i = state.tasks.findIndex(x=>x.id===id);
     const old = state.tasks[i];
-    state.tasks[i] = {...old,...data,title:data.title.trim(),updatedAt:now,completedAt:data.status==="Done"?(old.completedAt||now):""};
+    taskObject = {...old,...data,title:data.title.trim(),updatedAt:now,completedAt:data.status==="Done"?(old.completedAt||now):""};
+    state.tasks[i] = taskObject;
     toast(t("toastUpdated"));
   }else{
-    state.tasks.unshift({...data,id:uid(),title:data.title.trim(),createdAt:now,updatedAt:now,completedAt:data.status==="Done"?now:""});
+    taskObject = {...data,id:uid(),title:data.title.trim(),createdAt:now,updatedAt:now,completedAt:data.status==="Done"?now:""};
+    state.tasks.unshift(taskObject);
     toast(t("toastCreated"));
   }
-  save();closeModal();renderPage();
+  closeModal();
+  await saveTaskToCloud(taskObject);
 }
 function openTaskDetail(id){
   const x = state.tasks.find(t=>t.id===id);
@@ -463,32 +725,48 @@ function openTaskDetail(id){
     <div class="modal-foot"><button class="btn btn-danger" onclick="confirmDelete('${x.id}')">${I.trash}${t("delete")}</button><button class="btn btn-ghost" onclick="duplicateTask('${x.id}')">${I.copy}${t("duplicate")}</button><button class="btn btn-ghost" onclick="openTaskForm('${x.id}')">${I.edit}${t("editTask")}</button><button class="btn btn-primary" onclick="setTaskCompleted('${x.id}', ${x.status!=="Done"})">${I.check}${x.status==="Done"?t("reopen"):t("markDone")}</button></div></div>`);
 }
 function dl(k,v){return `<div class="dl"><dt>${k}</dt><dd>${v}</dd></div>`}
-function setTaskCompleted(id, completed){
+async function setTaskCompleted(id, completed){
   const x=state.tasks.find(t=>t.id===id); if(!x)return;
   const now=new Date().toISOString();
   x.status = completed ? "Done" : "Open";
   x.completedAt = completed ? (x.completedAt || now) : "";
   x.updatedAt = now;
-  save();
   toast(completed?t("toastDone"):t("toastReopened"));
   closeModal();
-  renderPage();
+  await saveTaskToCloud(x);
 }
-function duplicateTask(id){
+async function duplicateTask(id){
   const x=state.tasks.find(t=>t.id===id); if(!x)return;
   const now=new Date().toISOString();
-  state.tasks.unshift({...x,id:uid(),title:x.title+" Copy",status:"Open",createdAt:now,updatedAt:now,completedAt:""});
-  save();closeModal();renderPage();toast(t("toastDuplicated"));
+  const copy = {...x,id:uid(),title:x.title+" Copy",status:"Open",createdAt:now,updatedAt:now,completedAt:""};
+  state.tasks.unshift(copy);
+  closeModal();
+  toast(t("toastDuplicated"));
+  await saveTaskToCloud(copy);
 }
 function confirmDelete(id){
   const x=state.tasks.find(t=>t.id===id); if(!x)return;
   openModal(`<div class="modal modal-sm"><div class="modal-head"><div><span class="eyebrow">${t("delete")}</span><h3>${t("confirmDeleteT")}</h3></div><button class="modal-close" onclick="closeModal()">${I.close}</button></div><div class="modal-body"><p style="color:var(--muted)">${t("confirmDeleteP")}</p><div class="note-box" style="margin-top:14px">${esc(x.title)}</div></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">${t("keepIt")}</button><button class="btn btn-danger" onclick="deleteTask('${id}')">${I.trash}${t("yesDelete")}</button></div></div>`);
 }
-function deleteTask(id){state.tasks=state.tasks.filter(x=>x.id!==id);save();closeModal();renderPage();toast(t("toastDeleted"))}
+async function deleteTask(id){await deleteTaskFromCloud(id);closeModal();renderPage();toast(t("toastDeleted"))}
 function confirmReset(){
   openModal(`<div class="modal modal-sm"><div class="modal-head"><div><span class="eyebrow">${t("resetData")}</span><h3>${t("confirmResetT")}</h3></div><button class="modal-close" onclick="closeModal()">${I.close}</button></div><div class="modal-body"><p style="color:var(--muted)">${t("confirmResetP")}</p></div><div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal()">${t("keepIt")}</button><button class="btn btn-danger" onclick="resetData()">${I.reset}${t("yesReset")}</button></div></div>`);
 }
-function resetData(){state.tasks=[];save();closeModal();renderPage();toast(t("toastReset"))}
+async function resetData(){
+  if (supabaseClient && currentUser) {
+    const { error } = await supabaseClient.from("tasks").delete().eq("user_id", currentUser.id).neq("id", "__never__");
+    if (error) {
+      console.error(error);
+      toast("Cloud reset failed", "err", error.message);
+      return;
+    }
+  }
+  state.tasks=[];
+  save();
+  closeModal();
+  renderPage();
+  toast(t("toastReset"));
+}
 function exportData(){
   const blob = new Blob([JSON.stringify({tasks:state.tasks,appName:state.appName,exportedAt:new Date().toISOString()},null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="taskflow-blueprint-backup.json";a.click();URL.revokeObjectURL(a.href);toast(t("toastExported"));
@@ -496,7 +774,11 @@ function exportData(){
 function importData(file){
   if(!file)return;
   const r=new FileReader();
-  r.onload=()=>{try{const data=JSON.parse(r.result);if(!Array.isArray(data.tasks))throw new Error("bad");state.tasks=data.tasks; state.appName=data.appName||state.appName; save();renderPage();toast(t("toastImported"));}catch(e){toast(t("toastImportErr"),"err")}};
+  r.onload=()=>{try{const data=JSON.parse(r.result);if(!Array.isArray(data.tasks))throw new Error("bad");state.tasks=data.tasks; state.appName=data.appName||state.appName; save();renderPage();
+      if (supabaseClient && currentUser) {
+        for (const task of state.tasks) await saveTaskToCloud(task);
+      }
+      toast(t("toastImported"));}catch(e){toast(t("toastImportErr"),"err")}};
   r.readAsText(file);
 }
 function formatFocus(){
@@ -534,4 +816,4 @@ document.addEventListener("keydown",e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="n"){e.preventDefault();openTaskForm()}
 });
 load();
-renderPage();
+initAuth().then(renderPage);

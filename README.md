@@ -1,29 +1,43 @@
-# TaskFlow Blueprint
+# TaskFlow Blueprint — Supabase Cloud Sync Version
 
-A responsive multi-page Workshop Blueprint / Industrial SaaS Dashboard task manager.
+This version includes:
+- Supabase Google Auth
+- Google avatar in the top-right bar
+- Cloud-synced tasks using Supabase database
+- Row Level Security-ready SQL
+- Blue completion checkbox with white checkmark
+- Multi-page app structure
 
-## Files
-- index.html — Dashboard
-- tasks.html — Task list with blue completion checkbox
-- board.html — Kanban board
-- projects.html — Project progress
-- calendar.html — Deadlines
-- analytics.html — Charts and productivity metrics
-- focus.html — Focus sprint timer
-- settings.html — Theme, language, import/export/reset
-- css/styles.css — All styling
-- js/app.js — Icons, state, localStorage, modals, rendering
+## Setup
 
-## Features
-- Greek/English language switch
-- Dark/light mode
-- localStorage persistence
-- Add/edit/delete/duplicate tasks
-- Blue checkbox with white checkmark for completion
-- Search, filters, sorting
-- Dashboard KPIs
-- Kanban board
-- Projects, calendar, analytics, focus timer
-- Export/import JSON backup
+### 1. Supabase SQL
+Run `supabase-schema.sql` in:
+Supabase → SQL Editor
 
-Open index.html in your browser.
+### 2. Supabase Google provider
+Enable:
+Authentication → Providers → Google
+
+### 3. URL configuration
+Supabase → Authentication → URL Configuration
+
+Site URL:
+https://tickra.vercel.app
+
+Redirect URLs:
+https://tickra.vercel.app/**
+http://localhost:5500/**
+http://127.0.0.1:5500/**
+
+### 4. Add keys
+Open `js/config.js` and replace:
+- `PASTE_YOUR_SUPABASE_PROJECT_URL_HERE`
+- `PASTE_YOUR_SUPABASE_ANON_PUBLIC_KEY_HERE`
+
+Use:
+Supabase → Project Settings → API
+
+Use the anon public key only. Never put service_role in frontend code.
+
+### 5. Deploy
+Upload the folder to Vercel.
